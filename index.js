@@ -7,7 +7,7 @@ const _ = require('lodash')
 const pcapsDir = 'pcaps'
 const packetContentsRegex = /[^]*POST\s(.*)\sHTTP\/1\.1[^]*(^{.*?)$/gm
 
-const pcaps = fs.readdirSync(pcapsDir);
+const pcaps = fs.readdirSync(pcapsDir)
 
 console.log(chalk.green('Clearing existing mocks\n'))
 clearMocksDirectory()
@@ -39,12 +39,12 @@ pcaps.forEach(pcapFileName => {
     })
 
     parser.on('end', () => {
-        console.log(chalk.green(`Finished parsing ${packetsCount} packets of pcap dump ${pcapFileName}`))
+        console.log(chalk.green(`Finished parsing ${packetsCount} ${pcapFileName} dump`))
 
         console.log(chalk.green(`Writing mock files`))
-        writeMockResults(requests)
+        writeMockResults(pcapFileName, requests)
         console.log(chalk.green(`Finished writing mock files\n\n`))
-    });
+    })
 })
 
 isRESTRequest = (packetContents) => _.includes(packetContents, 'application/json')
