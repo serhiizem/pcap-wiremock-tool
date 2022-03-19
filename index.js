@@ -1,44 +1,50 @@
 const pcapp = require('pcap-parser')
+const fs = require('fs')
 const chalk = require('chalk')
-const {clearMocksDirectory, writeMockResults} = require('./mockWriter')
+const {clearMocksDirectory, writeMockResults} = require('./fileSystemUtil')
 const _ = require('lodash')
 
+const pcapsDir = 'pcaps'
 const packetContentsRegex = /[^]*POST\s(.*)\sHTTP\/1\.1[^]*(^{.*?)$/gm
 
-const requests = new Map()
-const parser = pcapp.parse('./sqc-portfolio-soa-impl.pcap')
+const pcaps = fs.readdirSync(pcapsDir);
 
-console.log(chalk.green('Starting to parse pcap dump contents'))
+console.log(chalk.green('Clearing existing mocks\n'))
+clearMocksDirectory()
 
-let packetsCount = 0
+pcaps.forEach(pcapFileName => {
+    const parser = pcapp.parse(`./${pcapsDir}/${pcapFileName}`)
+    console.log(chalk.green('Starting to parse pcap dump contents'))
 
-parser.on('packet', (packet) => {
-    const data = Buffer.from(packet.data).toString()
-    if (isRESTRequest(data)) {
-        const match = packetContentsRegex.exec(data)
-        if (match) {
-            const url = match[1]
-            const body = match[2]
+    const requests = new Map()
+    let packetsCount = 0
+    parser.on('packet', (packet) => {
+        const data = Buffer.from(packet.data).toString()
+        if (isRESTRequest(data)) {
+            const match = packetContentsRegex.exec(data)
+            if (match) {
+                const url = match[1]
+                const body = match[2]
 
-            if (url) {
-                const bodiesOfRequest = requests.get(url)
+                if (url) {
+                    const bodiesOfRequest = requests.get(url)
 
-                bodiesOfRequest
-                    ? requests.set(url, bodiesOfRequest.add(body))
-                    : requests.set(url, new Set([body]))
+                    bodiesOfRequest
+                        ? requests.set(url, bodiesOfRequest.add(body))
+                        : requests.set(url, new Set([body]))
+                }
             }
         }
-    }
-    packetsCount++
+        packetsCount++
+    })
+
+    parser.on('end', () => {
+        console.log(chalk.green(`Finished parsing ${packetsCount} packets of pcap dump ${pcapFileName}`))
+
+        console.log(chalk.green(`Writing mock files`))
+        writeMockResults(requests)
+        console.log(chalk.green(`Finished writing mock files\n\n`))
+    });
 })
-
-parser.on('end', () => {
-    console.log(chalk.green(`Finished parsing ${packetsCount} packets of pcap dump`))
-
-    console.log(chalk.green(`Writing mock files`))
-    clearMocksDirectory()
-    writeMockResults(requests)
-    console.log(chalk.green(`Finished writing mock files`))
-});
 
 isRESTRequest = (packetContents) => _.includes(packetContents, 'application/json')

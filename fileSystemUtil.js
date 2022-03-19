@@ -25,4 +25,4 @@ const writeMockResults = (requests) =>
         })
     })
 
-module.exports = {clearMocksDirectory, writeMockResults}
+module.exports = {readFilesFromDirectory, clearMocksDirectory, writeMockResults}
