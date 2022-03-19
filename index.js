@@ -5,7 +5,8 @@ const {clearMocksDirectory, writeMockResults} = require('./fileSystemUtil')
 const _ = require('lodash')
 
 const pcapsDir = 'pcaps'
-const packetContentsRegex = /[^]*(GET|POST|PUT)\s(.*)\sHTTP\/1\.1[^]*(^{.*?)$/gm
+const requestRegex = /[^]*(GET|POST|PUT|DELETE|PATCH)\s(.*)\sHTTP\/1\.1[^]*/gm
+const bodyRegex = /([^]*)(^{.*?)$/gm
 
 const pcaps = fs.readdirSync(pcapsDir)
 
@@ -19,20 +20,17 @@ pcaps.forEach(pcapFileName => {
     const requests = new Map()
     let packetsCount = 0
     parser.on('packet', (packet) => {
-        const data = Buffer.from(packet.data).toString()
-        if (isRESTRequest(data)) {
-            const match = packetContentsRegex.exec(data)
-            if (match) {
-                const url = match[2]
-                const body = match[3]
+        const payload = Buffer.from(packet.data).toString()
+        if (isRESTRequest(payload)) {
+            const endpointDetails = extractEndpointDetails(payload)
 
-                if (url) {
-                    const bodiesOfRequest = requests.get(url)
+            if (endpointDetails) {
+                const bodiesOfRequest = requests.get(endpointDetails)
+                const body = extractRequestBody(payload)
 
-                    bodiesOfRequest
-                        ? requests.set(url, bodiesOfRequest.add(body))
-                        : requests.set(url, new Set([body]))
-                }
+                bodiesOfRequest
+                    ? requests.set(endpointDetails, bodiesOfRequest.add(body))
+                    : requests.set(endpointDetails, new Set([body]))
             }
         }
         packetsCount++
@@ -48,3 +46,13 @@ pcaps.forEach(pcapFileName => {
 })
 
 isRESTRequest = (packetContents) => _.includes(packetContents, 'application/json')
+
+extractEndpointDetails = (input) => {
+    const match = requestRegex.exec(input)
+    if (match) return `${match[1]} ${match[2]}`
+}
+
+extractRequestBody = (input) => {
+    const match = bodyRegex.exec(input)
+    if (match) return match[2]
+}

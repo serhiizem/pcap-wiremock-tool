@@ -3,7 +3,7 @@ const path = require('path')
 
 const mocksDirectory = 'mocks'
 
-let fileIndex = 0;
+let fileIndex = 0
 
 const clearMocksDirectory = () => {
     const files = fs.readdirSync(mocksDirectory)
@@ -12,13 +12,13 @@ const clearMocksDirectory = () => {
 
 const writeMockResults = (pcapFileName, requests) =>
     [...requests.entries()].forEach((entry, index) => {
-        const url = entry[0]
+        const [method, url] = entry[0].split(' ')
         const bodies = entry[1]
 
         const mockName = path.parse(pcapFileName).name;
 
         bodies.forEach(bodyPattern => {
-            const output = {url, bodyPattern}
+            const output = {method, url, bodyPattern}
 
             fs.writeFileSync(
                 path.join(mocksDirectory, `${mockName}-${fileIndex++}.json`),
