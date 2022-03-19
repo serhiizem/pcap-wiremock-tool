@@ -5,7 +5,7 @@ const {clearMocksDirectory, writeMockResults} = require('./fileSystemUtil')
 const _ = require('lodash')
 
 const pcapsDir = 'pcaps'
-const packetContentsRegex = /[^]*POST\s(.*)\sHTTP\/1\.1[^]*(^{.*?)$/gm
+const packetContentsRegex = /[^]*(GET|POST|PUT)\s(.*)\sHTTP\/1\.1[^]*(^{.*?)$/gm
 
 const pcaps = fs.readdirSync(pcapsDir)
 
@@ -23,8 +23,8 @@ pcaps.forEach(pcapFileName => {
         if (isRESTRequest(data)) {
             const match = packetContentsRegex.exec(data)
             if (match) {
-                const url = match[1]
-                const body = match[2]
+                const url = match[2]
+                const body = match[3]
 
                 if (url) {
                     const bodiesOfRequest = requests.get(url)
