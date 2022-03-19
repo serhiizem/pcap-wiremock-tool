@@ -4,8 +4,7 @@ const fs = require('fs')
 const path = require('path')
 const _ = require('lodash')
 
-const requestRegex = /[^]*POST\s(.*)\sHTTP\/1\.1[^]*/gm
-const bodyRegex = /[^]*(^{.*?)$/gm
+const packetContentsRegex = /[^]*POST\s(.*)\sHTTP\/1\.1[^]*(^{.*?)$/gm
 
 const requests = new Map();
 const parser = pcapp.parse('./sqc-portfolio-soa-impl.pcap')
@@ -17,17 +16,21 @@ let packetsCount = 0;
 parser.on('packet', (packet) => {
     const data = new Buffer(packet.data).toString()
     if (isRESTRequest(data)) {
-        const url = extractByRegex(data, requestRegex)
-        if (url) {
-            const bodiesOfRequest = requests.get(url)
-            const body = sanitizeBody(extractByRegex(data, bodyRegex))
+        const match = packetContentsRegex.exec(data)
+        if (match) {
+            const url = match[1]
+            const body = match[2]
 
-            bodiesOfRequest
-                ? requests.set(url, bodiesOfRequest.add(body))
-                : requests.set(url, new Set([body]))
+            if (url) {
+                const bodiesOfRequest = requests.get(url)
+
+                bodiesOfRequest
+                    ? requests.set(url, bodiesOfRequest.add(body))
+                    : requests.set(url, new Set([body]))
+            }
         }
     }
-    packetsCount++;
+    packetsCount++
 })
 
 let fileIndex = 0;
