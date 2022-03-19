@@ -1,20 +1,19 @@
 const pcapp = require('pcap-parser')
 const chalk = require('chalk')
-const fs = require('fs')
-const path = require('path')
+const {clearMocksDirectory, writeMockResults} = require('./mockWriter')
 const _ = require('lodash')
 
 const packetContentsRegex = /[^]*POST\s(.*)\sHTTP\/1\.1[^]*(^{.*?)$/gm
 
-const requests = new Map();
+const requests = new Map()
 const parser = pcapp.parse('./sqc-portfolio-soa-impl.pcap')
 
 console.log(chalk.green('Starting to parse pcap dump contents'))
 
-let packetsCount = 0;
+let packetsCount = 0
 
 parser.on('packet', (packet) => {
-    const data = new Buffer(packet.data).toString()
+    const data = Buffer.from(packet.data).toString()
     if (isRESTRequest(data)) {
         const match = packetContentsRegex.exec(data)
         if (match) {
@@ -33,47 +32,13 @@ parser.on('packet', (packet) => {
     packetsCount++
 })
 
-let fileIndex = 0;
-
-const mocksDirectory = 'mocks';
-
 parser.on('end', () => {
     console.log(chalk.green(`Finished parsing ${packetsCount} packets of pcap dump`))
 
     console.log(chalk.green(`Writing mock files`))
     clearMocksDirectory()
-    writeMockResults()
+    writeMockResults(requests)
     console.log(chalk.green(`Finished writing mock files`))
 });
 
-clearMocksDirectory = () => {
-    const files = fs.readdirSync(mocksDirectory)
-    files.forEach(file => fs.unlinkSync(path.join(mocksDirectory, file)))
-}
-
-writeMockResults = () =>
-    [...requests.entries()].forEach((entry, index) => {
-        const url = entry[0]
-        const bodies = entry[1]
-
-        bodies.forEach(bodyPattern => {
-            const output = {url, bodyPattern};
-
-            fs.writeFileSync(
-                path.join(mocksDirectory, `mock-${fileIndex++}.json`),
-                JSON.stringify(output, null, 2)
-            )
-        })
-    })
-
-
 isRESTRequest = (packetContents) => _.includes(packetContents, 'application/json')
-
-extractByRegex = (input, regex) => {
-    const match = regex.exec(input);
-    if (match) return match[1]
-}
-
-sanitizeBody = (body) => {
-    if (body) return body.replace(/\\"/g, "")
-}
